@@ -1,0 +1,4 @@
+[package]
+name = "rsnes"
+version = "0.0.1"
+authors = ["andrew-pa <andrew.pa@outlook.com>"]
