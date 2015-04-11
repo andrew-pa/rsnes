@@ -6,9 +6,9 @@ use std::io::{Result, Read, Cursor, Seek, SeekFrom};
 use self::byteorder::{LittleEndian, ReadBytesExt};
 
 pub struct Cartridge {
-    PRG : Vec<u8>,
-    CHR : Vec<u8>,
-    SRAM : [u8; 0x2001],
+    prg : Vec<u8>,
+    chr : Vec<u8>,
+    sram : [u8; 0x2001],
     map_type : u8,
     mirror_md : u8,
     battery : u8,
@@ -44,7 +44,8 @@ impl Cartridge {
         if hdr.magic != 0x1a53454e {
             panic!("Header magic is bad");
         }
-
+        println!("Loaded iNES file: {}, #PRG={}, #CHR={}, cntrl1={:x}, cntrl2={:x}, #RAM={}",
+                path, hdr.numPRG, hdr.numCHR, hdr.cntrl1, hdr.cntrl2, hdr.numRAM);
         let mapper = (hdr.cntrl1 >> 4) | hdr.cntrl2;
         let mirror = (hdr.cntrl1 & 1) | (((hdr.cntrl1 >> 3) & 1) << 1);
         let battery = (hdr.cntrl1 >> 1) & 1;
@@ -60,17 +61,12 @@ impl Cartridge {
         try!(data.read(&mut CHRbuf[0..]));
 
         Ok(Cartridge{
-            PRG:        PRGbuf,
-            CHR:        CHRbuf,
-            SRAM:       [0; 0x2001],
+            prg:        PRGbuf,
+            chr:        CHRbuf,
+            sram:       [0; 0x2001],
             map_type:   mapper,
             mirror_md:  mirror,
             battery:    battery,
         })
-    }
-    pub fn read(&self, adr : u16) -> u8 {
-        0
-    }
-    pub fn write(&mut self, adr : u16, val : u8) {
     }
 }

@@ -1,7 +1,6 @@
-
-
 pub trait Memory {
-    fn read(&self, adr:u16)->u8;
+    fn read8(&self, adr:u16)->u8;
+    fn read16(&self, adr:u16)->u16;
     fn write(&mut self, adr:u16, val:u8);
 }
 
@@ -9,11 +8,22 @@ pub struct FlatMemory {
     pub main_mem : [u8; 65536]
 }
 
+impl FlatMemory {
+    fn new() -> FlatMemory {
+        FlatMemory { main_mem: [0; 65536] }
+    }
+
+}
+
 impl Memory for FlatMemory {
 
-    fn read(&self, adr : u16) -> u8 {
+    fn read8(&self, adr : u16) -> u8 {
         println!("reading ${:x} = #${:x}", adr, self.main_mem[adr as usize]);
         self.main_mem[adr as usize]
+    }
+    fn read16(&self, adr: u16) -> u16 {
+        self.main_mem[adr as usize] as u16
+            | (self.main_mem[adr as usize + 1] as u16) << 8
     }
 
     fn write(&mut self, adr : u16, val : u8) {
@@ -22,7 +32,226 @@ impl Memory for FlatMemory {
     }
 }
 
-pub struct CPU6502<M: Memory> {
+macro_rules! check_bit {
+    ( $value:expr, $bit:expr ) => {{ (($value >> $bit) & 1)==1 }}
+}
+
+type CPUInstr<M:Memory> = fn(&mut CPU<M>, u16,u16,u8) -> ();
+
+enum AddressingMode {
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    Accumulator,
+    Immediate,
+    Implied,
+    IndexedIndirect,
+    Indirect,
+    IndirectIndexed,
+    Relative,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY,
+}
+
+enum InterruptType {
+    None, NMI, IRQ
+}
+
+enum CpuFlag {
+    Carry, Zero, Interrupt, Decimal, Break, Overflow, Negative
+}
+
+struct CPU<M : Memory> {
+    memory: M,
+    cycles: u64,
+
+    pc: u16,
+    sp: u8,
+    ra: u8,
+    rx: u8,
+    ry: u8,
+    flg: u8,
+
+    interrupt: InterruptType,
+    stall: i32,
+
+    instr_table: Vec<CPUInstr>,
+}
+
+impl<M:Memory> CPU<M> {
+    pub fn new(m : M) -> CPU {
+         CPU {
+            memory: m,
+            cycles: 0,
+            pc: m.read(0xfffc),
+            sp: 0xfd,
+            ra: 0, rx: 0, ry: 0,
+            flg: 0x24,
+            interrupt: 0,
+            stall: 0,
+            instr_table: vec![
+                brk, ora, kil, slo, nop, ora, asl, slo,
+                php, ora, asl, anc, nop, ora, asl, slo,
+                bpl, ora, kil, slo, nop, ora, asl, slo,
+                clc, ora, nop, slo, nop, ora, asl, slo,
+                jsr, and, kil, rla, bit, and, rol, rla,
+                plp, and, rol, anc, bit, and, rol, rla,
+                bmi, and, kil, rla, nop, and, rol, rla,
+                sec, and, nop, rla, nop, and, rol, rla,
+                rti, eor, kil, sre, nop, eor, lsr, sre,
+                pha, eor, lsr, alr, jmp, eor, lsr, sre,
+                bvc, eor, kil, sre, nop, eor, lsr, sre,
+                cli, eor, nop, sre, nop, eor, lsr, sre,
+                rts, adc, kil, rra, nop, adc, ror, rra,
+                pla, adc, ror, arr, jmp, adc, ror, rra,
+                bvs, adc, kil, rra, nop, adc, ror, rra,
+                sei, adc, nop, rra, nop, adc, ror, rra,
+                nop, sta, nop, sax, sty, sta, stx, sax,
+                dey, nop, txa, xaa, sty, sta, stx, sax,
+                bcc, sta, kil, ahx, sty, sta, stx, sax,
+                tya, sta, txs, tas, shy, sta, shx, ahx,
+                ldy, lda, ldx, lax, ldy, lda, ldx, lax,
+                tay, lda, tax, lax, ldy, lda, ldx, lax,
+                bcs, lda, kil, lax, ldy, lda, ldx, lax,
+                clv, lda, tsx, las, ldy, lda, ldx, lax,
+                cpy, cmp, nop, dcp, cpy, cmp, dec, dcp,
+                iny, cmp, dex, axs, cpy, cmp, dec, dcp,
+                bne, cmp, kil, dcp, nop, cmp, dec, dcp,
+                cld, cmp, nop, dcp, nop, cmp, dec, dcp,
+                cpx, sbc, nop, isc, cpx, sbc, inc, isc,
+                inx, sbc, nop, sbc, cpx, sbc, inc, isc,
+                beq, sbc, kil, isc, nop, sbc, inc, isc,
+                sed, sbc, nop, isc, nop, sbc, inc, isc],
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.pc = self.memory.read16(0xfffc);
+        self.sp = 0xfd;
+        self.flg = 0x24;
+    }
+
+    pub fn trigger_nmi(&mut self) {
+        self.interrupt = InterruptType::NMI;
+    }
+    pub fn trigger_irq(&mut self) {
+        if !flag(CpuFlag::Interrupt) {
+            self.interrupt = InterruptType::IRQ;
+        }
+    }
+
+    pub fn step(&mut self) -> u64 {
+        if self.stall > 0 {
+            self.stall -= 1;
+            return 1;
+        }
+
+        match self.interrupt {
+            NMI => self.nmi(),
+            IRQ => self.irq(),
+            None => (),
+        };
+        self.interrupt = InterruptType::None;
+
+        let cpc = self.pc;
+        let opcode = self.memory.read8(cpc);
+        let (address, crossed_page) = match instruction_modes[opcode] {
+            Absolute    => (self.memory.read16(cpc+1), false),
+            AbsoluteX   => (self.memory.read16)
+        };
+    }
+//----------------------------------------Helper Functions-----------------------------------------
+    fn page_differ(a : u16, b : u16) -> bool {
+        a&0xFF00 != b & 0xFF00
+    }
+    pub fn flag(&self, flag : CpuFlag) -> bool {
+        match flag {
+            Carry       => check_bit(self.flg, 0),
+            Zero        => check_bit(self.flg, 1),
+            Interrupt   => check_bit(self.flg, 2),
+            Decimal     => check_bit(self.flg, 3),
+            Break       => check_bit(self.flg, 4),
+            Overflow    => check_bit(self.flg, 6),
+            Negative    => check_bit(self.flg, 7),
+        }
+    }
+    pub fn set_flag(&mut self, flag : CpuFlag, v : bool) {
+        let oflg = self.flg;
+        let iv = if v {1} else {0};
+        self.flg = match flag {
+            Carry       => oflg | (iv<<0),
+            Zero        => oflg | (iv<<1),
+            Interrupt   => oflg | (iv<<2),
+            Decimal     => oflg | (iv<<3),
+            Break       => oflg | (iv<<4),
+            Overflow    => oflg | (iv<<6),
+            Negative    => oflg | (iv<<7),
+        };
+    }
+
+    fn compare(&mut self, a : u8, b : u8) {
+        let r = a-b;
+        self.set_flag(CpuFlag::Zero,        r == 0);
+        self.set_flag(CpuFlag::Negative,    r&0x80 == 0);
+        self.set_flag(CpuFlag::Carry,       a>=b);
+    }
+    fn read16_bug(&self, adr: u16) -> u16 {
+        let lo = self.memory.read8(adr) as u16;
+        let hi = self.memory.read8(adr & 0xFF00 | ((adr as u8 + 1) as u16)) as u16;
+        hi<<8 | lo
+    }
+    fn push(&mut self, v : u8) {
+        let spadr = 0x100 | self.sp as u16;
+        self.memory.write(spadr, v);
+        self.sp -= 1;
+    }
+    fn pull(&mut self) -> u8 {
+        self.sp += 1;
+        let spadr = 0x100 | self.sp as u16;
+        self.memory.read8(spadr)
+    }
+
+    fn push16(&mut self, v : u16) {
+        self.push(v >> 8);
+        self.push(v & 0xFF);
+    }
+    fn pull16(&mut self) -> u16 {
+        cpu.pull() as u16 | ((cpu.pull() as u16) << 8)
+    }
+//-------------------------------------------------------------------------------------------------
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*pub struct CPU6502<M: Memory> {
     pc : u16,
     sp : u8,
     reg_a : u8,
@@ -534,4 +763,4 @@ impl<M : Memory> CPU6502<M> {
             },
         };
     }
-}
+}*/
