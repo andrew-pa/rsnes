@@ -36,7 +36,6 @@ macro_rules! check_bit {
     ( $value:expr, $bit:expr ) => {{ (($value >> $bit) & 1)==1 }}
 }
 
-type CPUInstr<M:Memory> = fn(&mut CPU<M>, u16,u16,u8) -> ();
 
 enum AddressingMode {
     Absolute,
@@ -53,6 +52,9 @@ enum AddressingMode {
     ZeroPageX,
     ZeroPageY,
 }
+
+
+type CPUInstr<M:Memory> = fn(&mut CPU<M>, u16,u16,AddressingMode) -> ();
 
 enum InterruptType {
     None, NMI, IRQ
@@ -156,10 +158,36 @@ impl<M:Memory> CPU<M> {
 
         let cpc = self.pc;
         let opcode = self.memory.read8(cpc);
-        let (address, crossed_page) = match instruction_modes[opcode] {
-            Absolute    => (self.memory.read16(cpc+1), false),
-            AbsoluteX   => (self.memory.read16)
+        let mode = instruction_modes[opcode];
+        let (address, crossed_page) = match mode {
+            Absolute        => (self.memory.read16(cpc+1), false),
+            AbsoluteX       => { let adr = self.memory.read16(cpc+1); let x = self.rx as u16;
+                                    (adr+x, page_differ(adr, adr+x)) },
+            AbsoluteY       => { let adr = self.memory.read16(cpc+1); let y = self.ry as u16;
+                                    (adr+y, page_differ(adr, adr+y)) },
+            Accumulator     => (0, false),
+            Immediate       => (cpc, false),
+            Implied         => (0, false),
+            IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) + self.rx), false),
+            Indirect        => (self.read16_buf(self.memory.read16(cpc+1)), false),
+            IndirectIndexed => { let y = self.ry as u16;
+                                 let adr = self.memory.read8(cpc+1);
+                                 let addr = self.read16_buf(adr)+y;
+                                    (addr, page_differ(addr-y, addr)) },
+            Relative        => {
+
+                                },
+            ZeroPage        => (self.memory.read(cpc+1) as u16, false),
+            ZeroPageX       => ((self.memory.read(cpc+1) as u16) + (self.rx as u16), false),
+            ZeroPageY       => ((self.memory.read(cpc+1) as u16) + (self.ry as u16), false),
         };
+
+        self.pc += instruction_size[opcode];
+        let delta_cycles = instruction_cycles[opcode] + if crossed_page { instruction_page_cycles[opcode] } else {0};
+        (self.instr_table[opcode])(self, address, self.pc, mode);
+
+        self.cycles += delta_cycles;
+        delta_cycles
     }
 //----------------------------------------Helper Functions-----------------------------------------
     fn page_differ(a : u16, b : u16) -> bool {
