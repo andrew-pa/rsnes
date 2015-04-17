@@ -78,11 +78,11 @@ struct CPU<M : Memory> {
     interrupt: InterruptType,
     stall: i32,
 
-    instr_table: Vec<CPUInstr>,
+    instr_table: Vec<CPUInstr<M>>,
 }
 
 impl<M:Memory> CPU<M> {
-    pub fn new(m : M) -> CPU {
+    pub fn new(m : M) -> CPU<M> {
          CPU {
             memory: m,
             cycles: 0,
@@ -93,38 +93,38 @@ impl<M:Memory> CPU<M> {
             interrupt: 0,
             stall: 0,
             instr_table: vec![
-                brk, ora, kil, slo, nop, ora, asl, slo,
-                php, ora, asl, anc, nop, ora, asl, slo,
-                bpl, ora, kil, slo, nop, ora, asl, slo,
-                clc, ora, nop, slo, nop, ora, asl, slo,
-                jsr, and, kil, rla, bit, and, rol, rla,
-                plp, and, rol, anc, bit, and, rol, rla,
-                bmi, and, kil, rla, nop, and, rol, rla,
-                sec, and, nop, rla, nop, and, rol, rla,
-                rti, eor, kil, sre, nop, eor, lsr, sre,
-                pha, eor, lsr, alr, jmp, eor, lsr, sre,
-                bvc, eor, kil, sre, nop, eor, lsr, sre,
-                cli, eor, nop, sre, nop, eor, lsr, sre,
-                rts, adc, kil, rra, nop, adc, ror, rra,
-                pla, adc, ror, arr, jmp, adc, ror, rra,
-                bvs, adc, kil, rra, nop, adc, ror, rra,
-                sei, adc, nop, rra, nop, adc, ror, rra,
-                nop, sta, nop, sax, sty, sta, stx, sax,
-                dey, nop, txa, xaa, sty, sta, stx, sax,
-                bcc, sta, kil, ahx, sty, sta, stx, sax,
-                tya, sta, txs, tas, shy, sta, shx, ahx,
-                ldy, lda, ldx, lax, ldy, lda, ldx, lax,
-                tay, lda, tax, lax, ldy, lda, ldx, lax,
-                bcs, lda, kil, lax, ldy, lda, ldx, lax,
-                clv, lda, tsx, las, ldy, lda, ldx, lax,
-                cpy, cmp, nop, dcp, cpy, cmp, dec, dcp,
-                iny, cmp, dex, axs, cpy, cmp, dec, dcp,
-                bne, cmp, kil, dcp, nop, cmp, dec, dcp,
-                cld, cmp, nop, dcp, nop, cmp, dec, dcp,
-                cpx, sbc, nop, isc, cpx, sbc, inc, isc,
-                inx, sbc, nop, sbc, cpx, sbc, inc, isc,
-                beq, sbc, kil, isc, nop, sbc, inc, isc,
-                sed, sbc, nop, isc, nop, sbc, inc, isc],
+            CPU::<M>::brk, CPU::<M>::ora, CPU::<M>::kil, CPU::<M>::slo, CPU::<M>::nop, CPU::<M>::ora, CPU::<M>::asl, CPU::<M>::slo,
+            CPU::<M>::php, CPU::<M>::ora, CPU::<M>::asl, CPU::<M>::anc, CPU::<M>::nop, CPU::<M>::ora, CPU::<M>::asl, CPU::<M>::slo,
+            CPU::<M>::bpl, CPU::<M>::ora, CPU::<M>::kil, CPU::<M>::slo, CPU::<M>::nop, CPU::<M>::ora, CPU::<M>::asl, CPU::<M>::slo,
+            CPU::<M>::clc, CPU::<M>::ora, CPU::<M>::nop, CPU::<M>::slo, CPU::<M>::nop, CPU::<M>::ora, CPU::<M>::asl, CPU::<M>::slo,
+            CPU::<M>::jsr, CPU::<M>::and, CPU::<M>::kil, CPU::<M>::rla, CPU::<M>::bit, CPU::<M>::and, CPU::<M>::rol, CPU::<M>::rla,
+            CPU::<M>::plp, CPU::<M>::and, CPU::<M>::rol, CPU::<M>::anc, CPU::<M>::bit, CPU::<M>::and, CPU::<M>::rol, CPU::<M>::rla,
+            CPU::<M>::bmi, CPU::<M>::and, CPU::<M>::kil, CPU::<M>::rla, CPU::<M>::nop, CPU::<M>::and, CPU::<M>::rol, CPU::<M>::rla,
+            CPU::<M>::sec, CPU::<M>::and, CPU::<M>::nop, CPU::<M>::rla, CPU::<M>::nop, CPU::<M>::and, CPU::<M>::rol, CPU::<M>::rla,
+            CPU::<M>::rti, CPU::<M>::eor, CPU::<M>::kil, CPU::<M>::sre, CPU::<M>::nop, CPU::<M>::eor, CPU::<M>::lsr, CPU::<M>::sre,
+            CPU::<M>::pha, CPU::<M>::eor, CPU::<M>::lsr, CPU::<M>::alr, CPU::<M>::jmp, CPU::<M>::eor, CPU::<M>::lsr, CPU::<M>::sre,
+            CPU::<M>::bvc, CPU::<M>::eor, CPU::<M>::kil, CPU::<M>::sre, CPU::<M>::nop, CPU::<M>::eor, CPU::<M>::lsr, CPU::<M>::sre,
+            CPU::<M>::cli, CPU::<M>::eor, CPU::<M>::nop, CPU::<M>::sre, CPU::<M>::nop, CPU::<M>::eor, CPU::<M>::lsr, CPU::<M>::sre,
+            CPU::<M>::rts, CPU::<M>::adc, CPU::<M>::kil, CPU::<M>::rra, CPU::<M>::nop, CPU::<M>::adc, CPU::<M>::ror, CPU::<M>::rra,
+            CPU::<M>::pla, CPU::<M>::adc, CPU::<M>::ror, CPU::<M>::arr, CPU::<M>::jmp, CPU::<M>::adc, CPU::<M>::ror, CPU::<M>::rra,
+            CPU::<M>::bvs, CPU::<M>::adc, CPU::<M>::kil, CPU::<M>::rra, CPU::<M>::nop, CPU::<M>::adc, CPU::<M>::ror, CPU::<M>::rra,
+            CPU::<M>::sei, CPU::<M>::adc, CPU::<M>::nop, CPU::<M>::rra, CPU::<M>::nop, CPU::<M>::adc, CPU::<M>::ror, CPU::<M>::rra,
+            CPU::<M>::nop, CPU::<M>::sta, CPU::<M>::nop, CPU::<M>::sax, CPU::<M>::sty, CPU::<M>::sta, CPU::<M>::stx, CPU::<M>::sax,
+            CPU::<M>::dey, CPU::<M>::nop, CPU::<M>::txa, CPU::<M>::xaa, CPU::<M>::sty, CPU::<M>::sta, CPU::<M>::stx, CPU::<M>::sax,
+            CPU::<M>::bcc, CPU::<M>::sta, CPU::<M>::kil, CPU::<M>::ahx, CPU::<M>::sty, CPU::<M>::sta, CPU::<M>::stx, CPU::<M>::sax,
+            CPU::<M>::tya, CPU::<M>::sta, CPU::<M>::txs, CPU::<M>::tas, CPU::<M>::shy, CPU::<M>::sta, CPU::<M>::shx, CPU::<M>::ahx,
+            CPU::<M>::ldy, CPU::<M>::lda, CPU::<M>::ldx, CPU::<M>::lax, CPU::<M>::ldy, CPU::<M>::lda, CPU::<M>::ldx, CPU::<M>::lax,
+            CPU::<M>::tay, CPU::<M>::lda, CPU::<M>::tax, CPU::<M>::lax, CPU::<M>::ldy, CPU::<M>::lda, CPU::<M>::ldx, CPU::<M>::lax,
+            CPU::<M>::bcs, CPU::<M>::lda, CPU::<M>::kil, CPU::<M>::lax, CPU::<M>::ldy, CPU::<M>::lda, CPU::<M>::ldx, CPU::<M>::lax,
+            CPU::<M>::clv, CPU::<M>::lda, CPU::<M>::tsx, CPU::<M>::las, CPU::<M>::ldy, CPU::<M>::lda, CPU::<M>::ldx, CPU::<M>::lax,
+            CPU::<M>::cpy, CPU::<M>::cmp, CPU::<M>::nop, CPU::<M>::dcp, CPU::<M>::cpy, CPU::<M>::cmp, CPU::<M>::dec, CPU::<M>::dcp,
+            CPU::<M>::iny, CPU::<M>::cmp, CPU::<M>::dex, CPU::<M>::axs, CPU::<M>::cpy, CPU::<M>::cmp, CPU::<M>::dec, CPU::<M>::dcp,
+            CPU::<M>::bne, CPU::<M>::cmp, CPU::<M>::kil, CPU::<M>::dcp, CPU::<M>::nop, CPU::<M>::cmp, CPU::<M>::dec, CPU::<M>::dcp,
+            CPU::<M>::cld, CPU::<M>::cmp, CPU::<M>::nop, CPU::<M>::dcp, CPU::<M>::nop, CPU::<M>::cmp, CPU::<M>::dec, CPU::<M>::dcp,
+            CPU::<M>::cpx, CPU::<M>::sbc, CPU::<M>::nop, CPU::<M>::isc, CPU::<M>::cpx, CPU::<M>::sbc, CPU::<M>::inc, CPU::<M>::isc,
+            CPU::<M>::inx, CPU::<M>::sbc, CPU::<M>::nop, CPU::<M>::sbc, CPU::<M>::cpx, CPU::<M>::sbc, CPU::<M>::inc, CPU::<M>::isc,
+            CPU::<M>::beq, CPU::<M>::sbc, CPU::<M>::kil, CPU::<M>::isc, CPU::<M>::nop, CPU::<M>::sbc, CPU::<M>::inc, CPU::<M>::isc,
+            CPU::<M>::sed, CPU::<M>::sbc, CPU::<M>::nop, CPU::<M>::isc, CPU::<M>::nop, CPU::<M>::sbc, CPU::<M>::inc, CPU::<M>::isc],
         }
     }
 
@@ -138,12 +138,102 @@ impl<M:Memory> CPU<M> {
         self.interrupt = InterruptType::NMI;
     }
     pub fn trigger_irq(&mut self) {
-        if !flag(CpuFlag::Interrupt) {
+        if !self.flag(CpuFlag::Interrupt) {
             self.interrupt = InterruptType::IRQ;
         }
     }
 
+    fn page_differ(a : u16, b : u16) -> bool {
+        a&0xFF00 != b & 0xFF00
+    }
     pub fn step(&mut self) -> u64 {
+        let instruction_size : [u16; 256] = [
+            1, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            3, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            1, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            1, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 0, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 0, 3, 0, 0,
+            2, 2, 2, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+            2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+        ];
+        let instruction_modes : [AddressingMode; 256] = [
+            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+            1, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 8, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 13, 13, 6, 3, 6, 3, 2, 2, 3, 3,
+            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 13, 13, 6, 3, 6, 3, 2, 2, 3, 3,
+            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
+            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
+        ].into_iter().map(|x:u8|match x {
+            1=>AddressingMode::Absolute,
+            2=>AddressingMode::AbsoluteX,
+            3=>AddressingMode::AbsoluteY,
+            4=>AddressingMode::Accumulator,
+            5=>AddressingMode::Immediate,
+            6=>AddressingMode::Implied,
+            7=>AddressingMode::IndexedIndirect,
+            8=>AddressingMode::Indirect,
+            9=>AddressingMode::IndirectIndexed,
+            10=>AddressingMode::Relative,
+            11=>AddressingMode::ZeroPage,
+            12=>AddressingMode::ZeroPageX,
+            13=>AddressingMode::ZeroPageY,
+            _ => unreachable!(),
+            });
+        let instruction_cycles : [u64; 256] = [
+            7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+            6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+            6, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 3, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+            6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 5, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+            2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,
+            2, 6, 2, 6, 4, 4, 4, 4, 2, 5, 2, 5, 5, 5, 5, 5,
+            2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,
+            2, 5, 2, 5, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 4, 4,
+            2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+            2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
+            2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+        ];
+        let instruction_page_cycles : [u8; 256] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
+        ];
         if self.stall > 0 {
             self.stall -= 1;
             return 1;
@@ -162,18 +252,18 @@ impl<M:Memory> CPU<M> {
         let (address, crossed_page) = match mode {
             Absolute        => (self.memory.read16(cpc+1), false),
             AbsoluteX       => { let adr = self.memory.read16(cpc+1); let x = self.rx as u16;
-                                    (adr+x, page_differ(adr, adr+x)) },
+                                    (adr+x, CPU::page_differ(adr, adr+x)) },
             AbsoluteY       => { let adr = self.memory.read16(cpc+1); let y = self.ry as u16;
-                                    (adr+y, page_differ(adr, adr+y)) },
+                                    (adr+y, CPU::page_differ(adr, adr+y)) },
             Accumulator     => (0, false),
             Immediate       => (cpc, false),
             Implied         => (0, false),
             IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) + self.rx), false),
-            Indirect        => (self.read16_buf(self.memory.read16(cpc+1)), false),
+            Indirect        => (self.read16_bug(self.memory.read16(cpc+1)), false),
             IndirectIndexed => { let y = self.ry as u16;
                                  let adr = self.memory.read8(cpc+1);
-                                 let addr = self.read16_buf(adr)+y;
-                                    (addr, page_differ(addr-y, addr)) },
+                                 let addr = self.read16_bug(adr)+y;
+                                    (addr, CPU::page_differ(addr-y, addr)) },
             Relative        => {
 
                                 },
@@ -183,25 +273,23 @@ impl<M:Memory> CPU<M> {
         };
 
         self.pc += instruction_size[opcode];
-        let delta_cycles = instruction_cycles[opcode] + if crossed_page { instruction_page_cycles[opcode] } else {0};
+        let delta_cycles = instruction_cycles[opcode] + if crossed_page { instruction_page_cycles[opcode]as u64 } else {0};
         (self.instr_table[opcode])(self, address, self.pc, mode);
 
         self.cycles += delta_cycles;
         delta_cycles
     }
 //----------------------------------------Helper Functions-----------------------------------------
-    fn page_differ(a : u16, b : u16) -> bool {
-        a&0xFF00 != b & 0xFF00
-    }
+
     pub fn flag(&self, flag : CpuFlag) -> bool {
         match flag {
-            Carry       => check_bit(self.flg, 0),
-            Zero        => check_bit(self.flg, 1),
-            Interrupt   => check_bit(self.flg, 2),
-            Decimal     => check_bit(self.flg, 3),
-            Break       => check_bit(self.flg, 4),
-            Overflow    => check_bit(self.flg, 6),
-            Negative    => check_bit(self.flg, 7),
+            Carry       => check_bit!(self.flg, 0),
+            Zero        => check_bit!(self.flg, 1),
+            Interrupt   => check_bit!(self.flg, 2),
+            Decimal     => check_bit!(self.flg, 3),
+            Break       => check_bit!(self.flg, 4),
+            Overflow    => check_bit!(self.flg, 6),
+            Negative    => check_bit!(self.flg, 7),
         }
     }
     pub fn set_flag(&mut self, flag : CpuFlag, v : bool) {
@@ -245,11 +333,63 @@ impl<M:Memory> CPU<M> {
         self.push(v & 0xFF);
     }
     fn pull16(&mut self) -> u16 {
-        cpu.pull() as u16 | ((cpu.pull() as u16) << 8)
+        self.pull() as u16 | ((self.pull() as u16) << 8)
     }
 //-------------------------------------------------------------------------------------------------
 
+    fn nmi(&mut self) {
+        let (pc, flg) = (self.pc, self.flg);
+        self.push16(pc);
+        self.push(flg);
+        self.pc = self.memory.read16(0xfffa);
+        self.set_flag(CpuFlag::Interrupt, true);
+        self.cycles += 7;
+    }
 
+    fn irq(&mut self) {
+        let (pc, flg) = (self.pc, self.flg);
+        self.push16(pc);
+        self.push(flg);
+        self.pc = self.memory.read16(0xfffe);
+        self.set_flag(CpuFlag::Interrupt, true);
+        self.cycles += 7;
+    }
+
+//-------------------------------------[Instructions]----------------------------------------------
+
+    fn adc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let a = self.ra as u16;
+        let b = self.memory.read(addr) as u16;
+        let c = if self.flag(CpuFlag::Carry) {1u16} else {0u16};
+        let res = a+b+c;
+        self.a = res as u8;
+        self.set_flag(CpuFlag::Zero, res == 0);
+        self.set_flag(CpuFlag::Negative, (res as u8)&0x80 != 0);
+        self.set_flag(CpuFlag::Carry, res>0xff);
+        self.set_flag(CpuFlag::Overflow, (a^b)&0x80 == 0 && (a ^ self.ra)&0x80 != 0);
+    }
+
+    fn and(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let a = self.ra;
+        let b = self.memory.read(addr);
+        let res = a & b;
+        self.ra = res;
+        self.set_flag(CpuFlag::Zero, res == 0);
+        self.set_flag(CpuFlag::Negative, res&0x80 != 0);
+    }
+
+    fn asl(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        if addrmd == AddressingMode::Accumulator {
+            let a = self.ra;
+            self.set_flag(CpuFlag::Carry, (a >> 7) & 1);
+            let res = a << 1;
+            self.ra = res;
+            self.set_flag(CpuFlag::Zero, res == 0);
+            self.set_flag(CpuFlag::Negative, res&0x80 != 0);
+        }
+    }
+
+//-------------------------------------------------------------------------------------------------
 }
 
 
