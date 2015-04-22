@@ -1,3 +1,5 @@
+use std::iter::*;
+
 pub trait Memory {
     fn read8(&self, adr:u16)->u8;
     fn read16(&self, adr:u16)->u16;
@@ -35,7 +37,24 @@ impl Memory for FlatMemory {
 macro_rules! check_bit {
     ( $value:expr, $bit:expr ) => {{ (($value >> $bit) & 1)==1 }}
 }
-
+macro_rules! branch_inst {
+    ( set $flag:expr, $fname:ident ) => {
+        fn $fname(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+            if self.flag($flag) {
+                self.pc = addr;
+                self.add_branch_cycles(pc, addr);
+            };
+        }
+    };
+    ( clr $flag:expr, $fname:ident ) => {
+        fn $fname(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+            if !self.flag($flag) {
+                self.pc = addr;
+                self.add_branch_cycles(pc, addr);
+            };
+        }
+    }
+}
 
 enum AddressingMode {
     Absolute,
@@ -165,39 +184,25 @@ impl<M:Memory> CPU<M> {
             2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
             2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
         ];
+        //don't worry, I used find and replace
         let instruction_modes : [AddressingMode; 256] = [
-            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-            1, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-            6, 7, 6, 7, 11, 11, 11, 11, 6, 5, 4, 5, 8, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 13, 13, 6, 3, 6, 3, 2, 2, 3, 3,
-            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 13, 13, 6, 3, 6, 3, 2, 2, 3, 3,
-            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-            5, 7, 5, 7, 11, 11, 11, 11, 6, 5, 6, 5, 1, 1, 1, 1,
-            10, 9, 6, 9, 12, 12, 12, 12, 6, 3, 6, 3, 2, 2, 2, 2,
-        ].into_iter().map(|x:u8|match x {
-            1=>AddressingMode::Absolute,
-            2=>AddressingMode::AbsoluteX,
-            3=>AddressingMode::AbsoluteY,
-            4=>AddressingMode::Accumulator,
-            5=>AddressingMode::Immediate,
-            6=>AddressingMode::Implied,
-            7=>AddressingMode::IndexedIndirect,
-            8=>AddressingMode::Indirect,
-            9=>AddressingMode::IndirectIndexed,
-            10=>AddressingMode::Relative,
-            11=>AddressingMode::ZeroPage,
-            12=>AddressingMode::ZeroPageX,
-            13=>AddressingMode::ZeroPageY,
-            _ => unreachable!(),
-            });
+           AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Accumulator,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+           AddressingMode::Absolute,AddressingMode::IndexedIndirect,AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Accumulator,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+           AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Accumulator,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+           AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::Implied,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Accumulator,AddressingMode::Immediate,AddressingMode::Indirect,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+           AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageY,AddressingMode::ZeroPageY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteY,AddressingMode::AbsoluteY,
+           AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageY,AddressingMode::ZeroPageY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteY,AddressingMode::AbsoluteY,
+           AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+           AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::Immediate,AddressingMode::IndexedIndirect,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::ZeroPage,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Implied,AddressingMode::Immediate,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,AddressingMode::Absolute,
+           AddressingMode::Relative,AddressingMode::IndirectIndexed,AddressingMode::Implied,AddressingMode::IndirectIndexed,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::ZeroPageX,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::Implied,AddressingMode::AbsoluteY,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,AddressingMode::AbsoluteX,
+        ];
         let instruction_cycles : [u64; 256] = [
             7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
             2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
@@ -242,13 +247,13 @@ impl<M:Memory> CPU<M> {
         match self.interrupt {
             NMI => self.nmi(),
             IRQ => self.irq(),
-            None => (),
+            InterruptType::None => (),
         };
         self.interrupt = InterruptType::None;
 
         let cpc = self.pc;
         let opcode = self.memory.read8(cpc);
-        let mode = instruction_modes[opcode];
+        let mode = instruction_modes[opcode as usize];
         let (address, crossed_page) = match mode {
             Absolute        => (self.memory.read16(cpc+1), false),
             AbsoluteX       => { let adr = self.memory.read16(cpc+1); let x = self.rx as u16;
@@ -258,23 +263,28 @@ impl<M:Memory> CPU<M> {
             Accumulator     => (0, false),
             Immediate       => (cpc, false),
             Implied         => (0, false),
-            IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) + self.rx), false),
+            IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) as u16 + self.rx as u16), false),
             Indirect        => (self.read16_bug(self.memory.read16(cpc+1)), false),
             IndirectIndexed => { let y = self.ry as u16;
-                                 let adr = self.memory.read8(cpc+1);
+                                 let adr = self.memory.read8(cpc+1) as u16;
                                  let addr = self.read16_bug(adr)+y;
                                     (addr, CPU::page_differ(addr-y, addr)) },
             Relative        => {
-
+                                    let offset = self.memory.read8(cpc+1) as u16;
+                                    (if offset < 0x80 { cpc + 2 + offset }
+                                        else { cpc+2+offset-0x100 }, false)
                                 },
-            ZeroPage        => (self.memory.read(cpc+1) as u16, false),
-            ZeroPageX       => ((self.memory.read(cpc+1) as u16) + (self.rx as u16), false),
-            ZeroPageY       => ((self.memory.read(cpc+1) as u16) + (self.ry as u16), false),
+            ZeroPage        => (self.memory.read8(cpc+1) as u16, false),
+            ZeroPageX       => ((self.memory.read8(cpc+1) as u16) + (self.rx as u16), false),
+            ZeroPageY       => ((self.memory.read8(cpc+1) as u16) + (self.ry as u16), false),
         };
 
-        self.pc += instruction_size[opcode];
-        let delta_cycles = instruction_cycles[opcode] + if crossed_page { instruction_page_cycles[opcode]as u64 } else {0};
-        (self.instr_table[opcode])(self, address, self.pc, mode);
+        self.pc += instruction_size[opcode as usize];
+        let delta_cycles = instruction_cycles[opcode as usize] +
+                    if crossed_page {
+                        instruction_page_cycles[opcode as usize] as u64 }
+                    else {0};
+        (self.instr_table[opcode as usize])(self, address, self.pc, mode);
 
         self.cycles += delta_cycles;
         delta_cycles
@@ -329,11 +339,15 @@ impl<M:Memory> CPU<M> {
     }
 
     fn push16(&mut self, v : u16) {
-        self.push(v >> 8);
-        self.push(v & 0xFF);
+        self.push((v >> 8) as u8);
+        self.push((v & 0xFF) as u8);
     }
     fn pull16(&mut self) -> u16 {
         self.pull() as u16 | ((self.pull() as u16) << 8)
+    }
+
+    fn add_branch_cycles(&mut self, pc:u16, addr:u16) {
+        self.cycles += if CPU::page_differ(pc, addr) {2} else {1};
     }
 //-------------------------------------------------------------------------------------------------
 
@@ -359,19 +373,19 @@ impl<M:Memory> CPU<M> {
 
     fn adc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
         let a = self.ra as u16;
-        let b = self.memory.read(addr) as u16;
+        let b = self.memory.read8(addr) as u16;
         let c = if self.flag(CpuFlag::Carry) {1u16} else {0u16};
         let res = a+b+c;
-        self.a = res as u8;
+        self.ra = res as u8;
         self.set_flag(CpuFlag::Zero, res == 0);
         self.set_flag(CpuFlag::Negative, (res as u8)&0x80 != 0);
         self.set_flag(CpuFlag::Carry, res>0xff);
-        self.set_flag(CpuFlag::Overflow, (a^b)&0x80 == 0 && (a ^ self.ra)&0x80 != 0);
+        self.set_flag(CpuFlag::Overflow, (a^b)&0x80 == 0 && (a ^ res)&0x80 != 0);
     }
 
     fn and(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
         let a = self.ra;
-        let b = self.memory.read(addr);
+        let b = self.memory.read8(addr);
         let res = a & b;
         self.ra = res;
         self.set_flag(CpuFlag::Zero, res == 0);
@@ -379,16 +393,160 @@ impl<M:Memory> CPU<M> {
     }
 
     fn asl(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        if addrmd == AddressingMode::Accumulator {
-            let a = self.ra;
-            self.set_flag(CpuFlag::Carry, (a >> 7) & 1);
-            let res = a << 1;
-            self.ra = res;
-            self.set_flag(CpuFlag::Zero, res == 0);
-            self.set_flag(CpuFlag::Negative, res&0x80 != 0);
-        }
+        let v = match addrmd {
+            AddressingMode::Accumulator => self.ra,
+            _ => self.memory.read8(addr),
+        };
+        self.set_flag(CpuFlag::Carry, (v >> 7) & 1 == 1);
+        let res = v << 1;
+        match addrmd {
+            AddressingMode::Accumulator => self.ra = res,
+            _ => self.memory.write(addr, res),
+        };
+        self.set_flag(CpuFlag::Zero, res == 0);
+        self.set_flag(CpuFlag::Negative, res&0x80 != 0);
     }
 
+    branch_inst!(clr CpuFlag::Carry,        bcc);
+    branch_inst!(set CpuFlag::Carry,        bcs);
+    branch_inst!(set CpuFlag::Zero,         beq);
+    branch_inst!(set CpuFlag::Negative,     bmi);
+    branch_inst!(clr CpuFlag::Zero,         bne);
+    branch_inst!(clr CpuFlag::Negative,     bpl);
+    branch_inst!(clr CpuFlag::Overflow,     bvc);
+    branch_inst!(set CpuFlag::Overflow,     bvs);
+
+    fn bit(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr);
+        self.set_flag(CpuFlag::Overflow, (v>>6)&1==1);
+        let a = self.ra;
+        self.set_flag(CpuFlag::Zero, v&a == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn brk(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.push16(pc);
+        let f = self.flg;
+        self.push(f);
+        self.set_flag(CpuFlag::Interrupt, true);
+        let npc = self.memory.read16(0xFFFE);
+        self.pc = npc;
+    }
+
+    fn clc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.set_flag(CpuFlag::Carry, false);
+    }
+    fn cld(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.set_flag(CpuFlag::Decimal, false);
+    }
+    fn cli(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.set_flag(CpuFlag::Interrupt, false);
+    }
+    fn clv(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.set_flag(CpuFlag::Overflow, false);
+    }
+
+    fn cmp(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let (a, v) = (self.ra, self.memory.read8(addr));
+        self.compare(a, v);
+    }
+    fn cpx(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let (x, v) = (self.rx, self.memory.read8(addr));
+        self.compare(x, v);
+    }
+    fn cpy(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let (y, v) = (self.ry, self.memory.read8(addr));
+        self.compare(y, v);
+    }
+
+    fn dec(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr)-1;
+        self.memory.write(addr, v);
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn dex(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.rx-1;
+        self.rx = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn dey(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.ry-1;
+        self.ry = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn eor(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.ra ^ self.memory.read8(addr);
+        self.ra = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn inc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr)+1;
+        self.memory.write(addr, v);
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn inx(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.rx+1;
+        self.rx = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn iny(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.ry+1;
+        self.ry = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn jmp(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.pc = addr;
+    }
+
+    fn jsr(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.push16(pc-1);
+        self.pc = addr;
+    }
+
+    fn lda(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr);
+        self.ra = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn ldx(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr);
+        self.rx = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+    fn ldy(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.memory.read8(addr);
+        self.ry = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn lsr(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let vin = match addrmd {
+            AddressingMode::Accumulator => self.ra,
+            _ => self.memory.read8(addr);
+        };
+        self.set_flag(CpuFlag::Carry, vin&1 == 1);
+        let v = vin >> 1;
+        self.memory.write(addr, v);
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn nop(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {}
+
+    
 //-------------------------------------------------------------------------------------------------
 }
 
