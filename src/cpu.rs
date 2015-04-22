@@ -535,7 +535,7 @@ impl<M:Memory> CPU<M> {
     fn lsr(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
         let vin = match addrmd {
             AddressingMode::Accumulator => self.ra,
-            _ => self.memory.read8(addr);
+            _ => self.memory.read8(addr),
         };
         self.set_flag(CpuFlag::Carry, vin&1 == 1);
         let v = vin >> 1;
@@ -546,7 +546,65 @@ impl<M:Memory> CPU<M> {
 
     fn nop(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {}
 
-    
+    fn ora(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let memv = self.memory.read8(addr);
+        let v = self.ra | memv;
+        self.ra = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn pha(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.push(self.ra);
+    }
+
+    fn php(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.push(self.flg | 0x10);
+    }
+
+    fn pla(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = self.pull();
+        self.ra = v;
+        self.set_flag(CpuFlag::Zero, v == 0);
+        self.set_flag(CpuFlag::Negative, v&0x80 != 0);
+    }
+
+    fn plp(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.flg = (self.pull() & 0xEF) | 0x20; //bit magic
+    }
+
+    fn rol(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = match addrmd {
+            AddressingMode::Accumulator => self.ra,
+            _ => self.memory.read8(addr),
+        };
+        let c = if self.flag(CpuFlag::Carry) {1} else {0};
+        self.set_flag(CpuFlag::Carry, (v >> 7) & 1 == 1);
+        let fv = (v << 1) | c;
+        match addrmd {
+            AddressingMode::Accumulator => self.ra = fv,
+            _ => self.memory.write(addr, fv)
+        };
+
+        self.set_flag(CpuFlag::Zero, fv == 0);
+        self.set_flag(CpuFlag::Negative, fv&0x80 != 0);
+    }
+    fn ror(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let v = match addrmd {
+            AddressingMode::Accumulator => self.ra,
+            _ => self.memory.read8(addr),
+        };
+        let c = if self.flag(CpuFlag::Carry) {1} else {0};
+        self.set_flag(CpuFlag::Carry, v & 1 == 1);
+        let fv = (v >> 1) | (c << 7);
+        match addrmd {
+            AddressingMode::Accumulator => self.ra = fv,
+            _ => self.memory.write(addr, fv)
+        };
+
+        self.set_flag(CpuFlag::Zero, fv == 0);
+        self.set_flag(CpuFlag::Negative, fv&0x80 != 0);
+    }
 //-------------------------------------------------------------------------------------------------
 }
 
