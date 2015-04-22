@@ -605,6 +605,15 @@ impl<M:Memory> CPU<M> {
         self.set_flag(CpuFlag::Zero, fv == 0);
         self.set_flag(CpuFlag::Negative, fv&0x80 != 0);
     }
+
+    fn rti(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.plp();
+        self.pc = self.pull16();
+    }
+
+    fn rts(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        self.pc = self.pull16() - 1;
+    }
 //-------------------------------------------------------------------------------------------------
 }
 
