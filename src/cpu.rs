@@ -66,7 +66,7 @@ macro_rules! transfer_inst {
     }
 }
 
-
+#[derive(Copy, Clone)]
 enum AddressingMode {
     Absolute,
     AbsoluteX,
@@ -113,10 +113,11 @@ struct CPU<M : Memory> {
 
 impl<M:Memory> CPU<M> {
     pub fn new(m : M) -> CPU<M> {
+        let npc = m.read16(0xfffc);
          CPU {
             memory: m,
             cycles: 0,
-            pc: m.read16(0xfffc),
+            pc: npc,
             sp: 0xfd,
             ra: 0, rx: 0, ry: 0,
             flg: 0x24,
@@ -256,8 +257,8 @@ impl<M:Memory> CPU<M> {
         }
 
         match self.interrupt {
-            NMI => self.nmi(),
-            IRQ => self.irq(),
+            InterruptType::NMI => self.nmi(),
+            InterruptType::IRQ => self.irq(),
             InterruptType::None => (),
         };
         self.interrupt = InterruptType::None;
@@ -271,23 +272,23 @@ impl<M:Memory> CPU<M> {
                                     (adr+x, CPU::<M>::page_differ(adr, adr+x)) },
             AddressingMode::AbsoluteY       => { let adr = self.memory.read16(cpc+1); let y = self.ry as u16;
                                     (adr+y, CPU::<M>::page_differ(adr, adr+y)) },
-            Accumulator     => (0, false),
-            Immediate       => (cpc, false),
-            Implied         => (0, false),
-            IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) as u16 + self.rx as u16), false),
-            Indirect        => (self.read16_bug(self.memory.read16(cpc+1)), false),
-            IndirectIndexed => { let y = self.ry as u16;
+            AddressingMode::Accumulator     => (0, false),
+            AddressingMode::Immediate       => (cpc, false),
+            AddressingMode::Implied         => (0, false),
+            AddressingMode::IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) as u16 + self.rx as u16), false),
+            AddressingMode::Indirect        => (self.read16_bug(self.memory.read16(cpc+1)), false),
+            AddressingMode::IndirectIndexed => { let y = self.ry as u16;
                                  let adr = self.memory.read8(cpc+1) as u16;
                                  let addr = self.read16_bug(adr)+y;
                                     (addr, CPU::<M>::page_differ(addr-y, addr)) },
-            Relative        => {
+            AddressingMode::Relative        => {
                                     let offset = self.memory.read8(cpc+1) as u16;
                                     (if offset < 0x80 { cpc + 2 + offset }
                                         else { cpc+2+offset-0x100 }, false)
                                 },
-            ZeroPage        => (self.memory.read8(cpc+1) as u16, false),
-            ZeroPageX       => ((self.memory.read8(cpc+1) as u16) + (self.rx as u16), false),
-            ZeroPageY       => ((self.memory.read8(cpc+1) as u16) + (self.ry as u16), false),
+            AddressingMode::ZeroPage        => (self.memory.read8(cpc+1) as u16, false),
+            AddressingMode::ZeroPageX       => ((self.memory.read8(cpc+1) as u16) + (self.rx as u16), false),
+            AddressingMode::ZeroPageY       => ((self.memory.read8(cpc+1) as u16) + (self.ry as u16), false),
         };
 
         self.pc += instruction_size[opcode as usize];
@@ -295,7 +296,8 @@ impl<M:Memory> CPU<M> {
                     if crossed_page {
                         instruction_page_cycles[opcode as usize] as u64 }
                     else {0};
-        (self.instr_table[opcode as usize])(self, address, self.pc, mode);
+        let _pc = self.pc;
+        (self.instr_table[opcode as usize])(self, address, _pc, mode);
 
         self.cycles += delta_cycles;
         delta_cycles
@@ -304,13 +306,13 @@ impl<M:Memory> CPU<M> {
 
     pub fn flag(&self, flag : CpuFlag) -> bool {
         match flag {
-            Carry       => check_bit!(self.flg, 0),
-            Zero        => check_bit!(self.flg, 1),
-            Interrupt   => check_bit!(self.flg, 2),
-            Decimal     => check_bit!(self.flg, 3),
-            Break       => check_bit!(self.flg, 4),
-            Overflow    => check_bit!(self.flg, 6),
-            Negative    => check_bit!(self.flg, 7),
+            CpuFlag::Carry       => check_bit!(self.flg, 0),
+            CpuFlag::Zero        => check_bit!(self.flg, 1),
+            CpuFlag::Interrupt   => check_bit!(self.flg, 2),
+            CpuFlag::Decimal     => check_bit!(self.flg, 3),
+            CpuFlag::Break       => check_bit!(self.flg, 4),
+            CpuFlag::Overflow    => check_bit!(self.flg, 6),
+            CpuFlag::Negative    => check_bit!(self.flg, 7),
         }
     }
     pub fn set_flag(&mut self, flag : CpuFlag, v : bool) {
@@ -566,11 +568,13 @@ impl<M:Memory> CPU<M> {
     }
 
     fn pha(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        self.push(self.ra);
+        let a = self.ra;
+        self.push(a);
     }
 
     fn php(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        self.push(self.flg | 0x10);
+        let f = self.flg;
+        self.push(f | 0x10);
     }
 
     fn pla(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
