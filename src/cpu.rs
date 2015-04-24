@@ -11,7 +11,7 @@ pub struct FlatMemory {
 }
 
 impl FlatMemory {
-    fn new() -> FlatMemory {
+    pub fn new() -> FlatMemory {
         FlatMemory { main_mem: [0; 65536] }
     }
 
@@ -94,16 +94,16 @@ enum CpuFlag {
     Carry, Zero, Interrupt, Decimal, Break, Overflow, Negative
 }
 
-struct CPU<M : Memory> {
-    memory: M,
-    cycles: u64,
+pub struct CPU<M : Memory> {
+    pub memory: M,
+    pub cycles: u64,
 
     pc: u16,
     sp: u8,
-    ra: u8,
-    rx: u8,
-    ry: u8,
-    flg: u8,
+    pub ra: u8,
+    pub rx: u8,
+    pub ry: u8,
+    pub flg: u8,
 
     interrupt: InterruptType,
     stall: i32,
@@ -303,7 +303,10 @@ impl<M:Memory> CPU<M> {
         delta_cycles
     }
 //----------------------------------------Helper Functions-----------------------------------------
-
+    pub fn write_state(&self) {
+        println!("PC=0x{:x}, SP=0x{:x}, A=0x{:x}, X=0x{:x}, Y=0x{:x}, Flag=0b{:b}",
+            self.pc, self.sp, self.ra, self.rx, self.ry, self.flg);
+    }
     pub fn flag(&self, flag : CpuFlag) -> bool {
         match flag {
             CpuFlag::Carry       => check_bit!(self.flg, 0),
