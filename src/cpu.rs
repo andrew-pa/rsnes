@@ -502,19 +502,22 @@ impl<M:Memory> CPU<M> {
     }
 
     fn inc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        let v = self.memory.read8(addr)+1;
+        let mut v = self.memory.read8(addr);
+        v = if v == 0xff {0x0} else {v+1};
         self.memory.write(addr, v);
         self.set_flag(CpuFlag::Zero, v == 0);
         self.set_flag(CpuFlag::Negative, v&0x80 != 0);
     }
     fn inx(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        let v = self.rx+1;
+        let mut v = self.rx;
+        v = if v == 0xff {0x0} else {v+1};
         self.rx = v;
         self.set_flag(CpuFlag::Zero, v == 0);
         self.set_flag(CpuFlag::Negative, v&0x80 != 0);
     }
     fn iny(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
-        let v = self.ry+1;
+        let mut v = self.ry;
+        v = if v == 0xff {0x0} else {v+1};
         self.ry = v;
         self.set_flag(CpuFlag::Zero, v == 0);
         self.set_flag(CpuFlag::Negative, v&0x80 != 0);
