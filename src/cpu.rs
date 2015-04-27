@@ -1,3 +1,5 @@
+#[allow(unused_variables)]
+#[allow(dead_code)]
 use std::iter::*;
 
 pub trait Memory {
@@ -24,6 +26,7 @@ impl Memory for FlatMemory {
         self.main_mem[adr as usize]
     }
     fn read16(&self, adr: u16) -> u16 {
+        println!("reading ${:x} = #${:x}", adr, self.main_mem[adr as usize]);
         self.main_mem[adr as usize] as u16
             | (self.main_mem[adr as usize + 1] as u16) << 8
     }

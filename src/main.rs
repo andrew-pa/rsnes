@@ -1,8 +1,11 @@
 #![feature(collections)]
+#[allow(unused_variables)]
+#[allow(dead_code)]
 
 mod cpu;
 use cpu::{Memory};
 mod cartridge;
+use cartridge::{Cartridge};
 
 use std::io::*;
 
@@ -12,7 +15,7 @@ fn main() {
     cpu.memory.write(0xfffe, 0x00);
     cpu.memory.write(0xffff, 0x00);
     cpu.memory.write(0x0000, 0xe8);
-    cpu.memory.write(0x0001, 0x6c);
+    cpu.memory.write(0x0001, 0x4c);
     cpu.memory.write(0x0002, 0x00);
     cpu.memory.write(0x0003, 0x00);
     let mut ln = String::new();

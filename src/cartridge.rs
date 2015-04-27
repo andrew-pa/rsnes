@@ -69,4 +69,26 @@ impl Cartridge {
             battery:    battery,
         })
     }
+
+    pub fn read(&self, adr : u16) -> u8 {
+        match self.map_type {
+            0|2 => 0,
+            1 => 0,
+            3 => 0,
+            4 => 0,
+            7 => 0,
+            _ => unreachable!("fail!"),
+        }
+    }
+
+    pub fn write(&self, adr : u16, v : u8) {
+        match self.map_type {
+            0|2 => 0,
+            1 => 0,
+            3 => 0,
+            4 => 0,
+            7 => 0,
+            _ => unreachable!("fail!")
+        }
+    }
 }
