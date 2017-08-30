@@ -69,7 +69,7 @@ macro_rules! transfer_inst {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum AddressingMode {
     Absolute,
     AbsoluteX,
@@ -89,6 +89,7 @@ enum AddressingMode {
 
 type CPUInstr<M:Memory> = fn(&mut CPU<M>, u16,u16,AddressingMode) -> ();
 
+#[derive(Debug)]
 enum InterruptType {
     None, NMI, IRQ
 }
@@ -101,8 +102,8 @@ pub struct CPU<M : Memory> {
     pub memory: M,
     pub cycles: u64,
 
-    pc: u16,
-    sp: u8,
+    pub pc: u16,
+    pub sp: u8,
     pub ra: u8,
     pub rx: u8,
     pub ry: u8,
@@ -117,6 +118,7 @@ pub struct CPU<M : Memory> {
 impl<M:Memory> CPU<M> {
     pub fn new(m : M) -> CPU<M> {
         let npc = m.read16(0xfffc);
+        println!("starting at {:x}", npc);
          CPU {
             memory: m,
             cycles: 0,
@@ -267,6 +269,7 @@ impl<M:Memory> CPU<M> {
         self.interrupt = InterruptType::None;
 
         let cpc = self.pc;
+        //print!("[{:x}]", cpc);
         let opcode = self.memory.read8(cpc);
         let mode = instruction_modes[opcode as usize];
         let (address, crossed_page) : (u16,bool) = match mode {
@@ -300,6 +303,8 @@ impl<M:Memory> CPU<M> {
                         instruction_page_cycles[opcode as usize] as u64 }
                     else {0};
         let _pc = self.pc;
+        print!("[{:x}]", opcode);
+        //println!("instr {:x} @ {:x}, mode = {:?}", opcode, address, mode);
         (self.instr_table[opcode as usize])(self, address, _pc, mode);
 
         self.cycles += delta_cycles;
@@ -307,8 +312,8 @@ impl<M:Memory> CPU<M> {
     }
 //----------------------------------------Helper Functions-----------------------------------------
     pub fn write_state(&self) {
-        println!("PC=0x{:x}, SP=0x{:x}, A=0x{:x}, X=0x{:x}, Y=0x{:x}, Flag=0b{:b}",
-            self.pc, self.sp, self.ra, self.rx, self.ry, self.flg);
+        println!("PC=0x{:x}, SP=0x{:x}, A=0x{:x}, X=0x{:x}, Y=0x{:x}, Flag=0b{:b}, Int={:?}",
+            self.pc, self.sp, self.ra, self.rx, self.ry, self.flg, self.interrupt);
     }
     pub fn flag(&self, flag : CpuFlag) -> bool {
         match flag {
@@ -336,9 +341,10 @@ impl<M:Memory> CPU<M> {
     }
 
     fn compare(&mut self, a : u8, b : u8) {
-        let r = a-b;
-        self.set_flag(CpuFlag::Zero,        r == 0);
-        self.set_flag(CpuFlag::Negative,    r&0x80 == 0);
+        //println!("cmp; a={}, b={}", a, b);
+        //let r = a-b;
+        self.set_flag(CpuFlag::Zero,        a==b);
+        self.set_flag(CpuFlag::Negative,    a<b);
         self.set_flag(CpuFlag::Carry,       a>=b);
     }
     fn read16_bug(&self, adr: u16) -> u16 {

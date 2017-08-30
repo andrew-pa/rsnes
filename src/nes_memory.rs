@@ -1,40 +1,35 @@
 use cpu::{Memory};
+use ppu::PictureProcessor;
+use cartridge::*;
 
-struct NesMemory<'a> {
+pub struct NesMemory<'c, 'p> {
     //Hardware stuff
-    cart : &'a Cartridge,
-    ram  : [u8; 2048],
+    cart: &'c mut Cartridge,
+    ram: [u8; 0x800],
+    ppu: &'p mut PictureProcessor
 }
 
-impl<'a> NesMemory<'a> {
-    fn new(c : &'a Cartridge) -> NesMemory<'a> {
-        NesMemory<'a> {
-            cart : c
+impl<'c, 'p> NesMemory<'c, 'p> {
+    pub fn new(c : &'c mut Cartridge, p: &'p mut PictureProcessor) -> NesMemory<'c, 'p> {
+        NesMemory {
+            cart : c, ppu: p,
+            ram: [0u8; 0x800]
         }
     }
 }
 
-impl<'a> Memory for NesMemory<'a> {
+impl<'c, 'p> Memory for NesMemory<'c, 'p> {
     fn read8(&self, adr:u16) -> u8 {
-        if adr < 0x2000 {
-            self.ram[adr%0x8000]
-        } else if adr < 0x4000 {
-            0 //read PPU
-        } else if adr == 0x4014 {
-            0 //read PPU
-        } else if adr == 0x4015 {
-            0 //read APU
-        } else if adr == 0x4016 {
-            0 //read Controller 1
-        } else if adr == 0x4017 {
-            0 //read Controller 2
-        } else if adr < 0x6000 {
-            0 //IO registers
-        } else if adr >= 0x6000 {
-            cart.read(adr)
-        } else {
-            panic!("Bad memory address @ 0x{:x}", adr);
-        }
+        //println!("read @ 0x{:x}", adr);
+        if adr <= 0x1fff {
+            self.ram[(adr%0x800) as usize]
+        } else if adr >= 0x2000 && adr < 0x3fff {
+            self.ppu.read((adr-0x2000) % 8)
+        } else if adr >= 0x6000 && adr < 0x8000 {
+            self.cart.sram[(adr-0x6000) as usize]
+        } else if adr >= 0x8000 {
+            self.cart.read(adr)
+        } else { println!("read {}", adr); 0 }
     }
 
     fn read16(&self, adr:u16) -> u16 {
@@ -43,26 +38,16 @@ impl<'a> Memory for NesMemory<'a> {
     }
 
     fn write(&mut self, adr:u16, val:u8) {
-        if adr < 0x2000 {
-            self.ram[adr%0x8000] = val;
-        } else if adr < 0x4000 {
-            //write PPU
-        } else if adr < 0x4014 {
-            //write APU
+        if adr <= 0x1fff {
+            self.ram[(adr%0x800) as usize] = val;
+        } else if adr >= 0x2000 && adr < 0x3fff {
+            self.ppu.write((adr-0x2000) % 8, val)
         } else if adr == 0x4014 {
-            //read PPU
-        } else if adr == 0x4015 {
-            //write APU
-        } else if adr == 0x4016 {
-            //write Controller 1/2
-        } else if adr == 0x4017 {
-            //write APU
-        } else if adr < 0x6000 {
-            //IO registers
-        } else if adr >= 0x6000 {
-            cart.write(adr)
-        } else {
-            panic!("Bad memory address @ 0x{:x}", adr);
-        }
+            println!("PPU DMA @ {}", val);
+        } else if adr >= 0x6000 && adr < 0x8000 {
+            self.cart.sram[(adr-0x6000) as usize] = val;
+        } else if adr >= 0x8000 {
+            self.cart.write(adr, val)
+        } else { println!("read {}", adr); }
     }
 }
