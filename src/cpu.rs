@@ -3,8 +3,8 @@
 use std::iter::*;
 
 pub trait Memory {
-    fn read8(&self, adr:u16)->u8;
-    fn read16(&self, adr:u16)->u16;
+    fn read8(&mut self, adr:u16)->u8;
+    fn read16(&mut self, adr:u16)->u16;
     fn write(&mut self, adr:u16, val:u8);
 }
 
@@ -21,11 +21,11 @@ impl FlatMemory {
 
 impl Memory for FlatMemory {
 
-    fn read8(&self, adr : u16) -> u8 {
+    fn read8(&mut self, adr : u16) -> u8 {
         println!("reading ${:x} = #${:x}", adr, self.main_mem[adr as usize]);
         self.main_mem[adr as usize]
     }
-    fn read16(&self, adr: u16) -> u16 {
+    fn read16(&mut self, adr: u16) -> u16 {
         println!("reading ${:x} = #${:x}", adr, self.main_mem[adr as usize]);
         self.main_mem[adr as usize] as u16
             | (self.main_mem[adr as usize + 1] as u16) << 8
@@ -116,7 +116,7 @@ pub struct CPU<M : Memory> {
 }
 
 impl<M:Memory> CPU<M> {
-    pub fn new(m : M) -> CPU<M> {
+    pub fn new(mut m : M) -> CPU<M> {
         let npc = m.read16(0xfffc);
         println!("starting at {:x}", npc);
          CPU {
@@ -281,8 +281,8 @@ impl<M:Memory> CPU<M> {
             AddressingMode::Accumulator     => (0, false),
             AddressingMode::Immediate       => (cpc, false),
             AddressingMode::Implied         => (0, false),
-            AddressingMode::IndexedIndirect => (self.read16_bug(self.memory.read8(cpc+1) as u16 + self.rx as u16), false),
-            AddressingMode::Indirect        => (self.read16_bug(self.memory.read16(cpc+1)), false),
+            AddressingMode::IndexedIndirect => { let v = self.memory.read8(cpc+1) as u16; let rx = self.rx as u16; (self.read16_bug(v+rx), false) },
+            AddressingMode::Indirect        => { let v = self.memory.read16(cpc+1); (self.read16_bug(v), false) },
             AddressingMode::IndirectIndexed => { let y = self.ry as u16;
                                  let adr = self.memory.read8(cpc+1) as u16;
                                  let addr = self.read16_bug(adr)+y;
@@ -303,7 +303,7 @@ impl<M:Memory> CPU<M> {
                         instruction_page_cycles[opcode as usize] as u64 }
                     else {0};
         let _pc = self.pc;
-        print!("[{:x}]", opcode);
+        //print!("[{:x}]", opcode);
         //println!("instr {:x} @ {:x}, mode = {:?}", opcode, address, mode);
         (self.instr_table[opcode as usize])(self, address, _pc, mode);
 
@@ -347,7 +347,7 @@ impl<M:Memory> CPU<M> {
         self.set_flag(CpuFlag::Negative,    a<b);
         self.set_flag(CpuFlag::Carry,       a>=b);
     }
-    fn read16_bug(&self, adr: u16) -> u16 {
+    fn read16_bug(&mut self, adr: u16) -> u16 {
         let lo = self.memory.read8(adr) as u16;
         let hi = self.memory.read8(adr & 0xFF00 | ((adr as u8 + 1) as u16)) as u16;
         hi<<8 | lo

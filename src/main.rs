@@ -15,6 +15,8 @@ use nes_memory::*;
 
 use std::env;
 use std::io::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use sdl2::event::Event;
 
@@ -25,8 +27,8 @@ fn main() {
 
     let mut cart = cartridge::Cartridge::new_from_ines(
         env::args().nth(1).or_else(|| env::var("ROMPATH").ok()).expect("cart path")).expect("load cart");
-    let mut ppu = PictureProcessor {};
-    let mut cpu = cpu::CPU::new(NesMemory::new(&mut cart, &mut ppu));
+    let mut ppu = Rc::new(RefCell::new(PictureProcessor::new()));
+    let mut cpu = cpu::CPU::new(NesMemory::new(&mut cart, ppu.clone()));
 
     let mut event_pump = sdl_context.event_pump().expect("obtain event pump");
     'frameloop: loop {
@@ -44,7 +46,15 @@ fn main() {
             }
         }
         //entering v-blank
-        ppu.vblank();
+        {
+            let mut _ppu = ppu.borrow_mut();
+            _ppu.vblank();
+            if _ppu.nmi_on_vblank {
+                cpu.trigger_nmi();
+            }
+        }
+        
+        //cpu.write_state();
         for scanline in 0..3 {
             let mut scancycles = 0;
             while scancycles < 113 {
