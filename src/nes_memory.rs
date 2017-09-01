@@ -29,7 +29,7 @@ impl<'c, 'p> Memory for NesMemory<'c, 'p> {
             self.cart.sram[(adr-0x6000) as usize]
         } else if adr >= 0x8000 {
             self.cart.read(adr)
-        } else { println!("read {}", adr); 0 }
+        } else { println!("read {:x}", adr); 0 }
     }
 
     fn read16(&self, adr:u16) -> u16 {
@@ -48,6 +48,6 @@ impl<'c, 'p> Memory for NesMemory<'c, 'p> {
             self.cart.sram[(adr-0x6000) as usize] = val;
         } else if adr >= 0x8000 {
             self.cart.write(adr, val)
-        } else { println!("read {}", adr); }
+        } else { println!("write {:x} = {:x}", adr, val); }
     }
 }
