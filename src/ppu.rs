@@ -13,10 +13,14 @@ pub struct PictureProcessor {
     show_sprites: bool,
     color_intensity: u8,
 
-    ignore_vram: bool,
     scanline_sprite_limit: bool,
     s0_hit_flag: bool,
     vblanking: bool,
+
+    spr_ram: [u8; 256],
+    spr_addr: u8,
+
+    vram_addr: u16, scroll: u16
 }
 
 impl PictureProcessor {
@@ -35,10 +39,12 @@ impl PictureProcessor {
             show_sprites: false,
             color_intensity: 0,
 
-            ignore_vram: false,
             scanline_sprite_limit: false,
             s0_hit_flag: false,
-            vblanking: false
+            vblanking: false,
+
+            spr_ram: [0u8; 256],
+            spr_addr: 0, vram_addr: 0, scroll: 0
         }
     }
     pub fn vblank(&mut self) { self.vblanking = true; }
@@ -46,12 +52,17 @@ impl PictureProcessor {
         println!("ppu read @ ${:x}", addr);
         match addr {
             2 => {
-                let a = if self.ignore_vram { 0x10 } else { 0 };
+                let a = if self.vblanking || !self.show_background || !self.show_sprites { 0x10 } else { 0 };
                 let b = if self.scanline_sprite_limit { 0x20 } else { 0 };
                 let c = if self.s0_hit_flag { 0x40 } else { 0 };
                 let d = if self.vblanking { 0x80 } else { 0 };
                 self.vblanking = false;
+                self.vram_addr = 0;
                 a|b|c|d
+            },
+            7 => {
+                println!("read vram @ {:x}", addr);
+                0
             },
             _ => 0
         }
@@ -74,8 +85,29 @@ impl PictureProcessor {
                 self.show_sprites = (val & 0x10) == 0x10;
                 self.color_intensity = (val & 0xe0) >> 1;
             },
+            3 => {
+                self.spr_addr = val;
+            },
+            4 => {
+                self.spr_ram[self.spr_addr as usize] = val;
+            },
+            5 => {
+                self.scroll = (self.scroll << 1) | (val as u16);
+            },
+            6 => {
+                self.vram_addr = (self.vram_addr << 1) | (val as u16);
+            },
+            7 => {
+                println!("write vram @ {:x} = {:x}", addr, val);
+                
+                self.vram_addr += self.addr_incr;
+            }
             _ => {},
         }
         println!("ppu write ${:x} = {:x}", addr, val);
+    }
+    pub fn dma(&mut self, data: Vec<u8>) {
+        println!("spr dma {:?}", data);
+        self.spr_ram.copy_from_slice(&data);
     }
 }

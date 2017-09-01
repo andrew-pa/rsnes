@@ -90,7 +90,7 @@ impl Cartridge {
                 if adr <= 0xbfff {
                     self.data[self.prg_offset + (adr-0x8000) as usize]
                 } else if adr >= 0xc000 {
-                    self.data[self.prg_offset + 16*1024 + (adr-0xc000) as usize]
+                    self.data[self.prg_offset + if self.num_prgs > 1 { 16*1024 } else { 0 } + (adr-0xc000) as usize]
                 } else {
                     println!("???");
                     0

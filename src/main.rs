@@ -39,35 +39,28 @@ fn main() {
             }
         }
 
-        for scanline in 0..240 {
-            let mut scancycles = 0;
-            while scancycles < 113 {
-                scancycles += cpu.step();
+        let mut y = 0;
+        let mut cycles = 0;
+        let mut rep = 0;
+        while y < 263 {
+            print!("scanline = {} ", y);
+            cpu.write_state();
+            let _pc = cpu.pc;
+            cycles += cpu.step();
+            if _pc == cpu.pc { rep += 1; if rep > 40 { break 'frameloop } }
+            if cycles > 113 {
+                for _ in 0..(cycles%113) { // advance scanlines for time on cpu
+                    y += 1; //next scanline
+                    if y == 240 { // v-blank
+                        println!("v blank!");
+                        let mut _ppu = ppu.borrow_mut();
+                        _ppu.vblank();
+                        if _ppu.nmi_on_vblank {
+                            cpu.trigger_nmi();
+                        }
+                    }
+                }
             }
         }
-        //entering v-blank
-        {
-            let mut _ppu = ppu.borrow_mut();
-            _ppu.vblank();
-            if _ppu.nmi_on_vblank {
-                cpu.trigger_nmi();
-            }
-        }
-        
-        //cpu.write_state();
-        for scanline in 0..3 {
-            let mut scancycles = 0;
-            while scancycles < 113 {
-                scancycles += cpu.step();
-            }
-        }
-        // v-blank
-        for scanline in 0..20 {
-            let mut scancycles = 0;
-            while scancycles < 113 {
-                scancycles += cpu.step();
-            }
-        }
-
-    }
+    } //frameloop
 }

@@ -303,7 +303,7 @@ impl<M:Memory> CPU<M> {
                         instruction_page_cycles[opcode as usize] as u64 }
                     else {0};
         let _pc = self.pc;
-        //print!("[{:x}]", opcode);
+        print!("[{:x}]", opcode);
         //println!("instr {:x} @ {:x}, mode = {:?}", opcode, address, mode);
         (self.instr_table[opcode as usize])(self, address, _pc, mode);
 
@@ -312,31 +312,42 @@ impl<M:Memory> CPU<M> {
     }
 //----------------------------------------Helper Functions-----------------------------------------
     pub fn write_state(&self) {
-        println!("PC=0x{:x}, SP=0x{:x}, A=0x{:x}, X=0x{:x}, Y=0x{:x}, Flag=0b{:b}, Int={:?}",
-            self.pc, self.sp, self.ra, self.rx, self.ry, self.flg, self.interrupt);
+        print!("PC=0x{:x}, SP=0x{:x}, A=0x{:x}, X=0x{:x}, Y=0x{:x}, Int={:?}, Flg={:b}",
+            self.pc, self.sp, self.ra, self.rx, self.ry, self.interrupt, self.flg);
+        if self.flag(CpuFlag::Carry) { print!("C"); }
+        if self.flag(CpuFlag::Zero) { print!("Z"); }
+        if self.flag(CpuFlag::Interrupt) { print!("I"); }
+        if self.flag(CpuFlag::Decimal) { print!("D"); }
+        if self.flag(CpuFlag::Break) { print!("B"); }
+        if self.flag(CpuFlag::Overflow) { print!("O"); }
+        if self.flag(CpuFlag::Negative) { print!("N"); }
+        println!();
     }
     pub fn flag(&self, flag : CpuFlag) -> bool {
         match flag {
-            CpuFlag::Carry       => check_bit!(self.flg, 0),
-            CpuFlag::Zero        => check_bit!(self.flg, 1),
-            CpuFlag::Interrupt   => check_bit!(self.flg, 2),
-            CpuFlag::Decimal     => check_bit!(self.flg, 3),
-            CpuFlag::Break       => check_bit!(self.flg, 4),
-            CpuFlag::Overflow    => check_bit!(self.flg, 6),
-            CpuFlag::Negative    => check_bit!(self.flg, 7),
+            CpuFlag::Carry       => self.flg & 0x01 == 0x01,//check_bit!(self.flg, 0),
+            CpuFlag::Zero        => self.flg & 0x02 == 0x02,//check_bit!(self.flg, 1),
+            CpuFlag::Interrupt   => self.flg & 0x04 == 0x04,//check_bit!(self.flg, 2),
+            CpuFlag::Decimal     => self.flg & 0x08 == 0x08,//check_bit!(self.flg, 3),
+            CpuFlag::Break       => self.flg & 0x10 == 0x10,//check_bit!(self.flg, 4),
+            CpuFlag::Overflow    => self.flg & 0x40 == 0x40,//check_bit!(self.flg, 6),
+            CpuFlag::Negative    => self.flg & 0x80 == 0x80,//check_bit!(self.flg, 7),
         }
     }
     pub fn set_flag(&mut self, flag : CpuFlag, v : bool) {
-        let oflg = self.flg;
-        let iv = if v {1} else {0};
-        self.flg = match flag {
-            CpuFlag::Carry       => oflg | (iv<<0),
-            CpuFlag::Zero        => oflg | (iv<<1),
-            CpuFlag::Interrupt   => oflg | (iv<<2),
-            CpuFlag::Decimal     => oflg | (iv<<3),
-            CpuFlag::Break       => oflg | (iv<<4),
-            CpuFlag::Overflow    => oflg | (iv<<6),
-            CpuFlag::Negative    => oflg | (iv<<7),
+        let mask = 1 << match flag {
+            CpuFlag::Carry       => 0,
+            CpuFlag::Zero        => 1,
+            CpuFlag::Interrupt   => 2,
+            CpuFlag::Decimal     => 3,
+            CpuFlag::Break       => 4,
+            CpuFlag::Overflow    => 6,
+            CpuFlag::Negative    => 7,
+        };
+        if v {
+            self.flg |= mask;
+        } else {
+            self.flg &= !mask;
         };
     }
 
@@ -381,6 +392,7 @@ impl<M:Memory> CPU<M> {
         self.push16(pc);
         self.push(flg);
         self.pc = self.memory.read16(0xfffa);
+        println!("NMI pc={:x} -> {:x} flg={:x}", pc, self.pc, self.flg);
         self.set_flag(CpuFlag::Interrupt, true);
         self.cycles += 7;
     }
@@ -600,7 +612,9 @@ impl<M:Memory> CPU<M> {
     }
 
     fn plp(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
+        let lflg = self.flg;
         self.flg = (self.pull() & 0xEF) | 0x20; //bit magic
+        println!("plp {:b} -> {:b}", lflg, self.flg);
     }
 
     fn rol(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
@@ -643,6 +657,7 @@ impl<M:Memory> CPU<M> {
 
     fn rts(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {
         self.pc = self.pull16() - 1;
+        println!("RTS {:x}", self.pc);
     }
 
     fn sbc(&mut self, addr:u16, pc:u16, addrmd:AddressingMode) {

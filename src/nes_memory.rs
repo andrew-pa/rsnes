@@ -44,10 +44,14 @@ impl<'c> Memory for NesMemory<'c> {
         if adr <= 0x1fff {
             self.ram[(adr%0x800) as usize] = val;
         } else if adr >= 0x2000 && adr < 0x3fff {
-            println!("ppu {:x}", adr);
             self.ppu.borrow_mut().write((adr-0x2000) % 8, val)
         } else if adr == 0x4014 {
             println!("PPU DMA @ {}", val);
+            let mut data: Vec<u8> = Vec::new();
+            for i in 0..256 {
+                data.push(self.read8((val as u16) * 0x0100 + i));
+            }
+            self.ppu.borrow_mut().dma(data);
         } else if adr >= 0x6000 && adr < 0x8000 {
             self.cart.sram[(adr-0x6000) as usize] = val;
         } else if adr >= 0x8000 {
